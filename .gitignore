@@ -1,0 +1,26 @@
+# ── Nunca subir a Git ─────────────────────────────────────────
+# Credenciales de la gente: contraseñas en claro.
+credenciales-iniciales*.csv
+credenciales*.csv
+
+# Llaves y variables de entorno.
+.env
+.env.*
+*secret*
+*.pem
+*.key
+
+# Datos reales de personas: historias clínicas, análisis, personal.
+*.xlsx
+*.xls
+personal*.csv
+Registro*Medico*.csv
+/pdf/
+/analisis/
+*.pdf
+
+# Ruido de sistema y de herramientas.
+node_modules/
+package-lock.json
+.DS_Store
+Thumbs.db
