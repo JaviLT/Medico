@@ -281,7 +281,7 @@
     app.innerHTML =
       '<header class="topbar">' +
         '<div class="marca"><span class="marca-ico">ZX</span>' +
-          '<span>Medico ZX<small>Expediente médico · Etapa 1</small></span></div>' +
+          '<span>Medico ZX</span></div>' +
         '<div class="tb-der">' +
           '<button class="tema" id="mzx-tema" aria-label="Cambiar tema"></button>' +
           '<div class="tb-user"><b>' + esc(perfil.nombre_completo) + '</b>' +

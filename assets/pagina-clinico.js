@@ -12,8 +12,7 @@
 (function () {
   'use strict';
   const { esc, $, $$, cliente, requiereSesion, montar, arranque, flash, modal, cerrarModal,
-          confirmar, auditar, cab, pie, tabla, etq, ro, fmt, fmtHora, dias, turnoTexto,
-          ESTADOS_HISTORIA } = window.ZX;
+          confirmar, auditar, cab, pie, tabla, ro, fmt, fmtHora, dias, turnoTexto } = window.ZX;
 
   const PESTANAS = [
     { id: 'ficha',    n: 'Ficha del colaborador' },
@@ -66,12 +65,8 @@
       tabla([
         { t: 'Nómina', k: 'numero_nomina' },
         { t: 'Nombre', k: 'nombre_completo' },
-        { t: 'Puesto', v: p => p.puesto || '—' },
         { t: 'Área', v: p => p.area || '—' },
-        { t: 'Turno', v: p => turnoTexto(p.turno) },
-        { t: 'Historia clínica', html: p => {
-            const h = (p.historias_clinicas || [])[0];
-            return h ? etq(ESTADOS_HISTORIA, h.estado) : '<span class="etq nt">Sin capturar</span>'; } },
+        { t: 'Historia clínica', html: p => estadoHistoria(p) },
         { t: '', html: p => '<button class="btn sm" data-pac="' + esc(p.id) + '">Expediente</button>' }
       ], filtrada, { vacio: 'Sin coincidencias.' });
 
@@ -89,6 +84,16 @@
     $$('[data-pac]').forEach(b => b.addEventListener('click', () => {
       pacienteSel = b.dataset.pac; pestana = 'ficha'; render();
     }));
+  }
+
+  /* El estatus ya no sigue el flujo de captura por el colaborador
+     (borrador → enviada → validada): con la carga masiva lo único
+     que importa es si el expediente está en el sistema o no. */
+  function estadoHistoria(p) {
+    const h = (p.historias_clinicas || [])[0];
+    return h
+      ? '<span class="etq ok">Capturada</span>'
+      : '<span class="etq nt">Sin capturar</span>';
   }
 
   /* ==================== EXPEDIENTE ==================== */
@@ -183,25 +188,112 @@
       'Humanos y no se editan desde aquí.</p></div>';
   }
 
-  /* ---------------- Historia clínica ---------------- */
+  /* ---------------- Historia clínica ----------------
+     Se muestra por bloques, en el orden del formato de Recursos
+     Humanos. Un bloque que no tiene ni un dato no se dibuja: más
+     vale una pantalla corta que veinte renglones con guiones. */
   function tabHistoria() {
     const h = exp.h;
     if (!h) {
       return '<div class="tarjeta"><div class="tarjeta-t">Historia clínica</div>' +
         '<p class="sub">Este colaborador todavía no tiene historia clínica cargada.</p></div>';
     }
-    return '<div class="tarjeta"><div class="tarjeta-t"><span>Historia clínica</span>' +
-        etq(ESTADOS_HISTORIA, h.estado) + '</div><div class="fila">' +
-        ro('Tipo sanguíneo', h.tipo_sanguineo) +
-        ro('Alergias', h.alergias) +
-        ro('Enfermedades crónicas', (h.enfermedades_cronicas || []).join(', ')) +
-        ro('Medicamentos habituales', h.medicamentos_habituales) +
-        ro('Antecedentes médicos', h.antecedentes_medicos) +
-        ro('Antecedentes quirúrgicos', h.antecedentes_quirurgicos) +
-        ro('Contacto de emergencia', h.contacto_emergencia) +
-        ro('Teléfono de emergencia', h.telefono_emergencia) +
-        ro('Última actualización', h.actualizado_en ? fmtHora(h.actualizado_en) : '—') +
-      '</div></div>';
+
+    return bloque('Identificación y antecedentes laborales', [
+        ['Edad', h.edad],
+        ['Género', h.genero],
+        ['Puestos desempeñados en la empresa', h.puestos_desempenados],
+        ['Accidentes de trabajo', h.accidentes_trabajo]
+      ]) +
+
+      bloque('Antecedentes personales y familiares', [
+        ['Consumo de sustancias', h.consumo_sustancias],
+        ['Enfermedad que padece', h.enfermedad_personal],
+        ['Antecedente heredofamiliar', h.antecedente_heredofamiliar],
+        ['Mascota en casa', h.mascota]
+      ]) +
+
+      /* Ginecológicos: el formato trae «n/a» en los hombres, así que
+         el bloque sólo aparece cuando hay información real. */
+      bloque('Antecedentes gineco-obstétricos', [
+        ['Menarca', h.menarca],
+        ['Ritmo', h.ritmo],
+        ['Fecha de última regla', h.fecha_ultima_regla],
+        ['Gestas', h.gestas],
+        ['Paras', h.paras],
+        ['Abortos', h.abortos],
+        ['Cesáreas', h.cesareas],
+        ['Inicio de vida sexual', h.inicio_vida_sexual],
+        ['Método anticonceptivo', h.metodo_anticonceptivo]
+      ]) +
+
+      bloque('Somatometría y signos vitales', [
+        ['Estatura', h.estatura_cm ? h.estatura_cm + ' cm' : null],
+        ['Peso', h.peso_kg ? h.peso_kg + ' kg' : null],
+        ['Índice de masa corporal', h.imc],
+        ['Tensión arterial', h.tension_arterial],
+        ['Frecuencia cardiaca', h.frecuencia_cardiaca]
+      ]) +
+
+      bloque('Exploración física', [
+        ['PEEA', h.peea],
+        ['Cabeza', h.cabeza],
+        ['Ojos', h.ojos],
+        ['Oídos', h.oidos],
+        ['Nariz', h.nariz],
+        ['Boca', h.boca],
+        ['Tórax', h.torax],
+        ['Área cardiaca', h.area_cardiaca],
+        ['Abdomen', h.abdomen],
+        ['Columna', h.columna],
+        ['Extremidades', h.extremidades]
+      ]) +
+
+      bloque('Valoración', [
+        ['Uso del servicio médico (últimos 4 meses)', h.uso_servicio_medico],
+        ['Motivos de consulta', h.motivos_consulta],
+        ['Estado de salud percibido', h.estado_salud_percibido],
+        ['Diagnóstico', h.diagnostico],
+        ['Tratamiento', h.tratamiento],
+        ['Estudios adicionales', h.estudios_adicionales],
+        ['Próxima cita', h.proxima_cita]
+      ]) +
+
+      /* Datos de la versión anterior de la aplicación. Sólo aparecen
+         en los expedientes que se capturaron antes del cambio. */
+      bloque('Otros datos registrados', [
+        ['Tipo sanguíneo', h.tipo_sanguineo],
+        ['Alergias', h.alergias],
+        ['Enfermedades crónicas', (h.enfermedades_cronicas || []).join(', ')],
+        ['Medicamentos habituales', h.medicamentos_habituales],
+        ['Antecedentes médicos', h.antecedentes_medicos],
+        ['Antecedentes quirúrgicos', h.antecedentes_quirurgicos],
+        ['Contacto de emergencia', h.contacto_emergencia],
+        ['Teléfono de emergencia', h.telefono_emergencia]
+      ]) +
+
+      '<p class="pista" style="font-size:11.5px;color:var(--tx3);margin-top:4px">' +
+      'Registro del servicio médico. Los bloques sin información no se muestran.</p>';
+  }
+
+  /* Un dato cuenta como vacío si viene nulo, en blanco o marcado como
+     no aplicable, que es lo que el formato usa en los hombres.
+     «Ninguno» y «Ninguna» NO entran aquí: son respuestas con
+     significado clínico —no hay tratamiento, no hay alergias— y
+     ocultarlas haría creer que la pregunta nunca se hizo. */
+  const NO_APLICA = ['n/a', 'na', 'no aplica', 'n.a.', 'n.a', '-', '--', '—'];
+  function vacio(v) {
+    if (v === null || v === undefined) return true;
+    const t = String(v).trim();
+    if (!t) return true;
+    return NO_APLICA.indexOf(t.toLowerCase()) >= 0;
+  }
+
+  function bloque(titulo, campos) {
+    const con = campos.filter(c => !vacio(c[1]));
+    if (!con.length) return '';
+    return '<div class="tarjeta"><div class="tarjeta-t">' + esc(titulo) + '</div>' +
+      '<div class="fila">' + con.map(c => ro(c[0], c[1])).join('') + '</div></div>';
   }
 
   /* ---------------- Análisis clínicos ---------------- */
