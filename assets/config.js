@@ -21,5 +21,5 @@ window.MZX_CONFIG = {
      script de carga inicial. */
   DOMINIO_NOMINA: 'nomina.zubex.com.mx',
 
-  VERSION: '2.1.0'
+  VERSION: '2.1.2'
 };

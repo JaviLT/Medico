@@ -48,7 +48,7 @@
   async function pacientes() {
     const { data, error } = await cliente()
       .from('perfiles')
-      .select('*, historias_clinicas!perfil_id(estado)')
+      .select('*, historias_clinicas!perfil_id(estado), archivos_analisis!perfil_id(id)')
       .eq('activo', true)
       .order('numero_nomina');
     if (error) throw error;
@@ -59,7 +59,9 @@
         .toLowerCase().indexOf(busca.toLowerCase()) >= 0);
 
     main.innerHTML =
-      cab('Pacientes', lista.length + ' personas con expediente') +
+      cab('Pacientes', lista.length + ' personas · ' +
+          lista.filter(p => historiaDe(p)).length + ' con historia clínica · ' +
+          lista.filter(p => cuantosAnalisis(p)).length + ' con análisis') +
       '<div class="filtros"><div class="campo" style="min-width:300px"><label>Buscar</label>' +
         '<input id="q" value="' + esc(busca) + '" placeholder="Nombre, nómina o área"></div></div>' +
       tabla([
@@ -67,6 +69,7 @@
         { t: 'Nombre', k: 'nombre_completo' },
         { t: 'Área', v: p => p.area || '—' },
         { t: 'Historia clínica', html: p => estadoHistoria(p) },
+        { t: 'Análisis clínicos', html: p => estadoAnalisis(p) },
         { t: '', html: p => '<button class="btn sm" data-pac="' + esc(p.id) + '">Expediente</button>' }
       ], filtrada, { vacio: 'Sin coincidencias.' });
 
@@ -90,10 +93,39 @@
      (borrador → enviada → validada): con la carga masiva lo único
      que importa es si el expediente está en el sistema o no. */
   function estadoHistoria(p) {
-    const h = (p.historias_clinicas || [])[0];
-    return h
+    return historiaDe(p)
       ? '<span class="etq ok">Capturada</span>'
       : '<span class="etq nt">Sin capturar</span>';
+  }
+
+  /* La historia clínica llega con DOS formas posibles.
+     `historias_clinicas.perfil_id` tiene restricción única —una
+     historia por persona—, así que PostgREST la trata como relación
+     uno a uno y devuelve un OBJETO, no una lista. Si algún día se
+     quitara esa restricción, devolvería un arreglo. Se resuelven las
+     dos: dar por hecho una sola forma fue justamente el motivo de que
+     la lista dijera «Sin capturar» aunque el expediente sí tuviera su
+     historia. */
+  function historiaDe(p) {
+    const h = p.historias_clinicas;
+    if (!h) return null;
+    return Array.isArray(h) ? (h[0] || null) : h;
+  }
+
+  /* Los análisis SÍ son varios por persona: el laboratorio entrega un
+     PDF por estudio. Aquí sólo interesa cuántos hay; el detalle vive en
+     la pestaña de análisis del expediente. */
+  function cuantosAnalisis(p) {
+    const a = p.archivos_analisis;
+    if (!a) return 0;
+    return Array.isArray(a) ? a.length : 1;
+  }
+
+  function estadoAnalisis(p) {
+    const n = cuantosAnalisis(p);
+    return n
+      ? '<span class="etq ok">' + n + (n === 1 ? ' estudio' : ' estudios') + '</span>'
+      : '<span class="etq nt">Sin cargar</span>';
   }
 
   /* ==================== EXPEDIENTE ==================== */
